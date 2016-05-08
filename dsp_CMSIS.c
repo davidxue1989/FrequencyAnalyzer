@@ -74,29 +74,31 @@ uint32_t binarySearchClosest_iterative(const float* arr, uint32_t arrSz, float t
   l = 0;
   r = arrSz-1;
   if (arr[l]>=target)
+  {
     return l;
-  if (arr[r]<=target)
+  }
+  if (arr[r]<=target) {
     return r;
+  }
   m = (r+l)/2;
   while (m>l) {
-    if (arr[m] == target)
-      return m;
-    else if (arr[m] > target)
+	if (arr[m] == target) {
+	  return m;
+    }
+    else if (arr[m] > target) {
       r = m;
-    else if (arr[m] < target)
+    }
+    else if (arr[m] < target) {
       l = m;
+    }
     m = (r+l)/2; //will equal to l when r=l+1;
   }
-  if ((target-arr[l])<=(arr[r]-target))
-    return l;
-  else
-    return r;
+  uint32_t closest = (target-arr[l])<=(arr[r]-target)?l:r;
+  return closest;
 }
 
 const char* DSPGetClosestMusicNote(tDSPInstance* instance) {
-  uint32_t closest = 3;
-  //binarySearchClosest_iterative(frequenciesLookup, sizeof(frequenciesLookup), DSPGetFundamentalFrequency(instance));
-  UART_PRINT("closest: %f\n\r", frequenciesLookup[closest]);
+  uint32_t closest = binarySearchClosest_iterative(frequenciesLookup, sizeof(frequenciesLookup)/sizeof(frequenciesLookup[0]), DSPGetFundamentalFrequency(instance));
   return notesLookup[closest];
 }
 
@@ -133,7 +135,7 @@ void DSPCalculateFFT(tDSPInstance* instance) {
 	uint32_t ifftFlag = 0;
 	uint32_t doBitReverse = 1;
 
-	int i;
+//	int i;
 
 //	UART_PRINT("\n\r\n\r");
 //	for (i=0; i<instance->signalSize; i++) {
