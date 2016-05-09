@@ -8,7 +8,7 @@
 #include "uart_if.h"
 #include "common.h"
 
-#include "FrequencyMusicNotesLookup.h"
+#include "lookupTables.h"
 
 volatile tboolean gb_DSPprocessing = FALSE;
 static tDSPInstance* gDSP_DSPInstance = NULL;
@@ -99,7 +99,8 @@ uint32_t binarySearchClosest_iterative(const float* arr, uint32_t arrSz, float t
 
 const char* DSPGetClosestMusicNote(tDSPInstance* instance) {
   uint32_t closest = binarySearchClosest_iterative(frequenciesLookup, sizeof(frequenciesLookup)/sizeof(frequenciesLookup[0]), DSPGetFundamentalFrequency(instance));
-  return notesLookup[closest];
+//  return notesLookup[closest];
+  return notesLookup_trueFreq[closest];
 }
 
 //the dsp main thread
@@ -122,20 +123,23 @@ void DSPConvertUC2F32(tDSPInstance* instance) {
   for (i=0; i<instance->signalSize; i+=2) {
     //the signal should be 16 kHz 16bit PCM (http://www.ti.com/tool/TIDC-CC3200AUDBOOST)
     //so need to combine two unsigned char together
-    fpSignal[i/2] = (float32_t) (ucpSignal[i+1] | (ucpSignal[i]<<8));
+	unsigned short combined = (ucpSignal[i+1] | (ucpSignal[i]<<8));
+//	short signedCombined = (short)combined;
+//    fpSignal[i/2] = (float32_t) signedCombined;
+//	fpSignal[i/2] = (float32_t) combined; //from experimentation, it seems the unsigned to float converted signal looks more correct than the signed to float converted signal (spectral density graph looks cleaner)
+	fpSignal[i/2] = (float32_t) combined - 38500.f; //from experimentation, 38500 seems like the dc offset (got from averaging the vacant noise signal)
   }
 }
 
 void DSPCalculateFFT(tDSPInstance* instance) {
-	if (instance->signalSize != 1024*2) {
-	  while(1) {
-	  }//signal size different than our assumption
+	if (instance->signalSize != 1024*8) {
+	  UART_PRINT("signalsize different than expected!\n\r");
+	  while(1) {}//signal size different than our assumption
 	}
 
 	uint32_t ifftFlag = 0;
 	uint32_t doBitReverse = 1;
-
-//	int i;
+	uint32_t i;
 
 //	UART_PRINT("\n\r\n\r");
 //	for (i=0; i<instance->signalSize; i++) {
@@ -149,8 +153,18 @@ void DSPCalculateFFT(tDSPInstance* instance) {
 //	}
 //	UART_PRINT("\n\r\n\r");
 
+	/* Hanning window the time signal */
+	for (i=0; i<instance->signalSize/2; i++) {
+		instance->fpSignal[i] *= HanningWindow_4096[i];
+	}
+//	UART_PRINT("\n\r\n\r");
+//	for (i=0; i<instance->signalSize/2; i++) {
+//		UART_PRINT("%f ", instance->fpSignal[i]);
+//	}
+//	UART_PRINT("\n\r\n\r");
+
     /* Process the data through the CFFT/CIFFT module */
-    arm_cfft_f32(&arm_cfft_sR_f32_len512, instance->fpSignal, ifftFlag, doBitReverse);
+    arm_cfft_f32(&arm_cfft_sR_f32_len2048, instance->fpSignal, ifftFlag, doBitReverse);
 //    UART_PRINT("\n\r\n\r");
 //    for (i=0; i<instance->signalSize/2; i++) {
 //    	UART_PRINT("%f ", instance->fpSignal[i]);
@@ -162,6 +176,8 @@ void DSPCalculateFFT(tDSPInstance* instance) {
     arm_cmplx_mag_f32(instance->fpSignal, instance->FFTResults, instance->fftSize);
     //ignore dc bias
     instance->FFTResults[0] = 0;
+    //also ignore 2nd bin when using hanning window (got this from experimentation)
+    instance->FFTResults[1] = 0;
 //    UART_PRINT("\n\r\n\r");
 //    for (i=0; i<instance->signalSize/4; i++) {
 //    	UART_PRINT("%f ", instance->FFTResults[i]);
@@ -169,8 +185,7 @@ void DSPCalculateFFT(tDSPInstance* instance) {
 //    UART_PRINT("\n\r\n\r");
 
     /* Calculates maxValue and returns corresponding BIN value */
-    arm_max_f32(instance->FFTResults, instance->fftSize/2, \
-        &instance->maxEnergyBinValue, &instance->maxEnergyBinIndex);
+    arm_max_f32(instance->FFTResults, instance->fftSize/2/*only half of fft is unique*/, &instance->maxEnergyBinValue, &instance->maxEnergyBinIndex);
 //    UART_PRINT("max energy at (%d:%f)\n\r", instance->maxEnergyBinIndex, instance->maxEnergyBinValue);
 
 //    UART_PRINT("\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r");

@@ -51,9 +51,9 @@ extern "C"
 #endif
 
 
-#define PACKET_SIZE       1024*2
-#define RECORD_BUFFER_SIZE      10*PACKET_SIZE
-#define PLAY_BUFFER_SIZE        30*PACKET_SIZE //TODO: why so huge? was 70*PACKET_SIZE before. does decreasing this affect anything?
+#define PACKET_SIZE       1024*8
+#define RECORD_BUFFER_SIZE      5*PACKET_SIZE
+#define PLAY_BUFFER_SIZE        5*PACKET_SIZE //was originally 70*PACKET_SIZE before, why so huge?
 
 #define MCASP_AUD_WFIFO_SZ      16
 #define CB_EVENT_CONFIG_SZ      8
