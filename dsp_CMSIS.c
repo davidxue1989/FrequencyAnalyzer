@@ -27,10 +27,10 @@ tDSPInstance* DSPCeateInstance(uint32_t signalSize, uint32_t Fs) {
   }
   tempInstance->signalSize = signalSize;
   tempInstance->Fs = Fs;
-  tempInstance->fftSize = signalSize / 4;
   tempInstance->ucpSignal = (unsigned char*)malloc(sizeof(unsigned char)*signalSize);
   tempInstance->fpSignal = (float32_t*)malloc(sizeof(float32_t)*signalSize/2);
-  tempInstance->FFTResults = (float32_t*)malloc(sizeof(float32_t)*signalSize/4);
+  tempInstance->fftSize = signalSize / 4;
+  tempInstance->FFTResults = (float32_t*)malloc(sizeof(float32_t)*tempInstance->fftSize);
   if (tempInstance->ucpSignal==NULL || \
       tempInstance->fpSignal==NULL || \
       tempInstance->FFTResults==NULL) {
@@ -123,11 +123,8 @@ void DSPConvertUC2F32(tDSPInstance* instance) {
   for (i=0; i<instance->signalSize; i+=2) {
     //the signal should be 16 kHz 16bit PCM (http://www.ti.com/tool/TIDC-CC3200AUDBOOST)
     //so need to combine two unsigned char together
-	unsigned short combined = (ucpSignal[i+1] | (ucpSignal[i]<<8));
-//	short signedCombined = (short)combined;
-//    fpSignal[i/2] = (float32_t) signedCombined;
-//	fpSignal[i/2] = (float32_t) combined; //from experimentation, it seems the unsigned to float converted signal looks more correct than the signed to float converted signal (spectral density graph looks cleaner)
-	fpSignal[i/2] = (float32_t) combined - 38500.f; //from experimentation, 38500 seems like the dc offset (got from averaging the vacant noise signal)
+	uint16_t combined = ((ucpSignal[i+1]<<8) | ucpSignal[i]);
+	fpSignal[i/2] = (float32_t) (int16_t)combined;
   }
 }
 
@@ -179,7 +176,7 @@ void DSPCalculateFFT(tDSPInstance* instance) {
     //also ignore 2nd bin when using hanning window (got this from experimentation)
     instance->FFTResults[1] = 0;
 //    UART_PRINT("\n\r\n\r");
-//    for (i=0; i<instance->signalSize/4; i++) {
+//    for (i=0; i<instance->fftSize; i++) {
 //    	UART_PRINT("%f ", instance->FFTResults[i]);
 //    }
 //    UART_PRINT("\n\r\n\r");
